@@ -124,7 +124,7 @@ const OwnerSignupForm = () => {
       {/* Login button to redirect to login page */}
       <div>
         <p>Already have an account?</p>
-        <button type="button" onClick={() => navigate("/login")}>
+        <button type="button" onClick={() => navigate("/owner/login")}>
           Login
         </button>
       </div>

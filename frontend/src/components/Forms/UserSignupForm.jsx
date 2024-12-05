@@ -67,7 +67,12 @@ const UserSignupForm = () => {
       <button type="button" onClick={handleGoogleSignup}>
         Sign up with Google
       </button>
+      <button type="button" onClick={() => navigate("/user/login")}>
+          Login
+        </button>
+      
     </form>
+    
   );
 };
 

@@ -179,7 +179,7 @@ module.exports = isAuthenticated;
 
 router.get("/user-dashboard", isAuthenticated, async (req, res) => {
   try {
-    console.log("Decoded user info from token:", req.user); // Debugging log
+    // console.log("Decoded user info from token:", req.user); // Debugging log
 
     // Check if the role is "user"
     if (req.user.role !== "user") {

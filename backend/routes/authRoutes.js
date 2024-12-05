@@ -5,6 +5,7 @@ const passport = require("passport");
 const Admin = require("../models/Admin");
 const Owner = require("../models/Owner"); 
 const User = require("../models/User");  
+const Shop = require("../models/Shop");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 
 const router = express.Router();
@@ -75,7 +76,10 @@ router.post("/owner/signup", async (req, res) => {
   
       // Save the new owner to the database
       await newOwner.save();
-  
+      const shop = await Shop.create({
+        name: shopName,
+        owner: newOwner._id,
+      });
       // Return a success response
       res.status(201).json({ message: "Owner created successfully" });
     } catch (error) {
@@ -111,6 +115,7 @@ router.post("/owner/signup", async (req, res) => {
   
       // Save the new user to the database
       await newUser.save();
+     
   
       // Return a success response
       res.status(201).json({ message: "User created successfully" });

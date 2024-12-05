@@ -1,20 +1,20 @@
-// middlewares/verifyToken.js
-const jwt = require("jsonwebtoken");
+const jwt = require('jsonwebtoken');
 
 const verifyToken = (req, res, next) => {
-  const token = req.cookies.session_token;
-  
-  if (!token) {
-    return res.status(401).json({ message: "Unauthorized: No session token" });
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: "Authorization token required." });
   }
+
+  const token = authHeader.split(' ')[1];
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // Store user info in request object
-    next(); // Proceed to the next middleware or route handler
+    req.user = decoded;
+    next();
   } catch (error) {
-    console.error("Invalid token:", error);
-    res.status(401).json({ message: "Unauthorized: Invalid or expired token" });
+    res.status(401).json({ message: "Invalid or expired token." });
   }
 };
 

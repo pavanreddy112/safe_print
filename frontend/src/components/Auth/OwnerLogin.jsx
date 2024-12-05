@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const UserLoginForm = () => {
-  const [email, setEmail] = useState("");
+const OwnerLoginForm = () => {
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
@@ -10,10 +10,10 @@ const UserLoginForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const loginData = { email, password };
+    const loginData = { username, password };
 
     try {
-      const response = await fetch("http://localhost:5000/api/user/login", {
+      const response = await fetch("http://localhost:5000/api/owner/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -27,8 +27,8 @@ const UserLoginForm = () => {
         // Store the token in localStorage
         localStorage.setItem("token", data.token);
 
-        // Redirect to the user's dashboard after successful login
-        navigate("/user-dashboard");
+        // Redirect to the owner's dashboard after successful login
+        navigate("/owner-dashboard");
       } else {
         setError(data.message || "Error logging in");
       }
@@ -41,14 +41,14 @@ const UserLoginForm = () => {
   return (
     <div className="login-form-container">
       <form onSubmit={handleSubmit}>
-        <h2>User Login</h2>
+        <h2>Owner Login</h2>
         <div className="form-group">
           <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
             required
-            placeholder="Email"
+            placeholder="Username"
             className="form-input"
           />
         </div>
@@ -69,4 +69,4 @@ const UserLoginForm = () => {
   );
 };
 
-export default UserLoginForm;
+export default OwnerLoginForm;

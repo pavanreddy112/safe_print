@@ -8,6 +8,8 @@ import OwnerLoginForm from "./components/Auth/OwnerLogin";
 import UserLoginForm from "./components/Auth/UserLogin";
 import OwnerDashboard from "./pages/OwnerDashboard";
 import UserDashboard from "./pages/UserDashboard";
+import SearchShops from "./pages/SearchShops";
+import SecureCommunication from "./pages/SecureCommunication";
 
 function App() {
   return (
@@ -21,6 +23,8 @@ function App() {
         <Route path="/admin/signup" element={<AdminSignup />} />
         <Route path="/owner/signup" element={<OwnerSignup />} />
         <Route path="/user/signup" element={<UserSignup />} />
+        <Route path="/search" element={<SearchShops />} />
+        <Route path="/chat/:shopId" element={<SecureCommunication />} />
       </Routes>
     </BrowserRouter>
   );

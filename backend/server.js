@@ -1,26 +1,70 @@
-// server.js
 const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
 const passport = require("passport");
 const session = require("express-session");
 const mongoose = require("mongoose");
-const cors = require("cors");  // Import CORS
-require("dotenv").config();
+const cors = require("cors");
+const dotenv = require("dotenv");
 const cookieParser = require("cookie-parser");
 
+// Load environment variables
+dotenv.config();
 
-const GoogleStrategy = require("passport-google-oauth20").Strategy;
+// Import routes
+const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
+const ownerRoutes = require("./routes/ownerRoutes");
+const chatRoutes = require("./routes/chatRoutes");
+const fileRoutes = require("./routes/fileRoutes");
+const shopRoutes = require('./routes/shopRoutes');
+
+
+// Initialize Express and Socket.IO
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:5173", // Adjust to your frontend origin
+    methods: ["GET", "POST"],
+  },
+});
+
+// Enable CORS
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true, // Allow cookies and credentials
+  })
+);
+app.use(express.json());
+app.use(cookieParser());
+
+// Middleware for session management
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "your-session-secret",
+    resave: false,
+    saveUninitialized: true,
+    cookie: {
+      httpOnly: true, // Helps prevent XSS attacks
+      secure: process.env.NODE_ENV === "production", // Use secure cookies in production
+      maxAge: 24 * 60 * 60 * 1000, // 1 day expiration
+    },
+  })
+);
 
 // Passport Google OAuth setup
+const GoogleStrategy = require("passport-google-oauth20").Strategy;
 passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: process.env.GOOGLE_CALLBACK_URL, // Ensure this URL matches the one you configured in Google Developer Console
+      callbackURL: process.env.GOOGLE_CALLBACK_URL,
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        // Check if the user exists in the database
         let user = await User.findOne({ email: profile._json.email });
         if (!user) {
           user = new User({
@@ -29,66 +73,54 @@ passport.use(
           });
           await user.save();
         }
-
-        return done(null, user); // Proceed with the user authentication
+        return done(null, user);
       } catch (error) {
         done(error, null);
       }
     }
   )
 );
-
-// Serialize and deserialize user to store in session
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((user, done) => done(null, user));
-
-// Initialize Express app
-const app = express();
-
-// Enable CORS for all origins
-
-app.use(
-    cors({
-        origin: "http://localhost:5173", // Allow only this origin
-        credentials: true, // Allow cookies and credentials
-    })
-);
-app.use(cookieParser()); app.use(cookieParser()); 
-// Middleware
-app.use(express.json());  // Add middleware to parse JSON
-app.use(
-    session({
-      secret: process.env.SESSION_SECRET || "your-session-secret", // Use a strong secret in production
-      resave: false,
-      saveUninitialized: true,
-      cookie: {
-        httpOnly: true, // Helps prevent XSS attacks
-        secure: process.env.NODE_ENV === "production", // Use secure cookies in production
-        maxAge: 24 * 60 * 60 * 1000, // 1 day expiration
-      },
-    })
-);
-
-// Initialize Passport
 app.use(passport.initialize());
 app.use(passport.session());
 
-// MongoDB connection
+// Connect to MongoDB
 mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB Connected"))
-  .catch((err) => console.error(err));
-
-// Import routes
-const authRoutes = require("./routes/authRoutes");
-const ownerRoutes = require("./routes/ownerRoutes");
-const userRoutes = require("./routes/userRoutes");
-
+  .connect(process.env.MONGO_URI, {
+    // No need to specify `useNewUrlParser` or `useUnifiedTopology`
+  })
+  .then(() => console.log('MongoDB connected'))
+  .catch((err) => console.error('MongoDB connection error:', err));
 // Use routes
 app.use("/api", authRoutes); 
-app.use("/auth", userRoutes);// Auth routes for Google login and other auth-related actions
-app.use("/api/owner", ownerRoutes); // Owner-specific routes
-app.use("/api/user", userRoutes); // User-specific routes
-// Start server
+app.use("/api/auth", userRoutes);
+app.use("/api/user", userRoutes);
+app.use("/api/owner", ownerRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/files", fileRoutes);
+app.use('/api/shops', shopRoutes);
+// Socket.IO for real-time communication
+io.on("connection", (socket) => {
+  console.log(`User connected: ${socket.id}`);
+
+  // Join a room
+  socket.on("joinRoom", ({ roomId }) => {
+    socket.join(roomId);
+    console.log(`User joined room: ${roomId}`);
+  });
+
+  // Handle messages
+  socket.on("sendMessage", ({ roomId, message, senderId }) => {
+    io.to(roomId).emit("receiveMessage", { senderId, message });
+  });
+
+  // Disconnect event
+  socket.on("disconnect", () => {
+    console.log(`User disconnected: ${socket.id}`);
+  });
+});
+
+// Start the server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
