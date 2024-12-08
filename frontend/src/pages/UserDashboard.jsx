@@ -148,7 +148,7 @@ const UserDashboard = () => {
           {selectedShop && (
             <div className="selected-shop">
               <h2>Selected Shop: {selectedShop.name}</h2>
-              <p>Owner: {selectedShop.owner}</p>
+              <p>Owner: {selectedShop.owner.name}</p>
             </div>
           )}
         </div>

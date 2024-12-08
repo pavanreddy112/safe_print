@@ -102,25 +102,20 @@ app.use("/api/files", fileRoutes);
 app.use('/api/shops', shopRoutes);
 // Socket.IO for real-time communication
 io.on("connection", (socket) => {
-  console.log(`User connected: ${socket.id}`);
+  console.log("New client connected");
 
-  // Join a room
-  socket.on("joinRoom", ({ roomId }) => {
-    socket.join(roomId);
-    console.log(`User joined room: ${roomId}`);
+  socket.on("joinChat", ({ userId, shopId }) => {
+    socket.join(shopId); // Join chat room based on shopId
   });
 
-  // Handle messages
-  socket.on("sendMessage", ({ roomId, message, senderId }) => {
-    io.to(roomId).emit("receiveMessage", { senderId, message });
+  socket.on("sendMessage", (message) => {
+    io.to(message.shopId).emit("receiveMessage", message); // Emit message to all users in the shop room
   });
 
-  // Disconnect event
   socket.on("disconnect", () => {
-    console.log(`User disconnected: ${socket.id}`);
+    console.log("Client disconnected");
   });
 });
-
 // Start the server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

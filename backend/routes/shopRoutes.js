@@ -34,6 +34,24 @@ router.get('/search', verifyToken, async (req, res) => {
     }
   });
   
+  router.get('/shops/:shopId', async (req, res) => {
+    const { shopId } = req.params; // Extract the shopId from the URL
+    try {
+      const shop = await Shop.findById(shopId).populate('owner'); // Fetch the shop by ID and populate owner
+      if (!shop) {
+        return res.status(404).json({ message: 'Shop not found' });
+      }
+      res.json({
+        shop: {
+          _id: shop._id,
+          name: shop.name,
+          owner: { _id: shop.owner._id, name: shop.owner.name }
+        }
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Error fetching shop details' });
+    }
+  });
   
-
 module.exports = router;
