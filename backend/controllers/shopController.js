@@ -1,16 +1,14 @@
-const Shop = require('../models/Shop'); // Assuming Shop is your shop model
+    const UploadedFile = require("../models/UploadedFile");
 
-const getOwnerByShopId = async (req, res) => {
-    const { shopId } = req.params;
+    const getUploadedFiles = async (req, res) => {
     try {
-        const shop = await Shop.findById(shopId);
-        if (!shop) {
-            return res.status(404).json({ error: 'Shop not found' });
-        }
-        return res.json({ ownerId: shop.ownerId });
-    } catch (error) {
-        return res.status(500).json({ error: 'Server error', details: error.message });
+        const files = await UploadedFile.find({ shopId: req.params.shopId })
+        .populate("userId", "name email") // Populate user info
+        .sort({ uploadedAt: -1 }); // Sort by upload date
+        res.status(200).json(files);
+    } catch (err) {
+        res.status(500).json({ error: "Failed to fetch files" });
     }
-};
+    };
 
-module.exports = { getOwnerByShopId };
+    module.exports = { getUploadedFiles };

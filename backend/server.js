@@ -18,6 +18,8 @@ const ownerRoutes = require("./routes/ownerRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const fileRoutes = require("./routes/fileRoutes");
 const shopRoutes = require('./routes/shopRoutes');
+const messageRoutes = require('./routes/messageRoutes');
+const documentRoutes = require('./routes/documentRoutes');
 
 
 // Initialize Express and Socket.IO
@@ -97,9 +99,12 @@ app.use("/api", authRoutes);
 app.use("/api/auth", userRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/owner", ownerRoutes);
-app.use("/api/chat", chatRoutes);
-app.use("/api/files", fileRoutes);
-app.use('/api/shops', shopRoutes);
+// app.use("/api/chat", messageRoutes);
+// app.use("/api/files", fileRoutes);
+// app.use('/api/shops', shopRoutes);
+
+app.use("/api/chat", documentRoutes); // File upload routes
+app.use("/api/shops", shopRoutes);
 // Socket.IO for real-time communication
 io.on("connection", (socket) => {
   console.log("New client connected");
@@ -116,6 +121,8 @@ io.on("connection", (socket) => {
     console.log("Client disconnected");
   });
 });
+console.log('POST /upload route hit');
+
 // Start the server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

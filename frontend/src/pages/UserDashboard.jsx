@@ -10,6 +10,7 @@ const UserDashboard = () => {
   const [selectedShop, setSelectedShop] = useState(null); // Selected shop for communication
   const navigate = useNavigate();
 
+  // Fetch user data and check authorization
   useEffect(() => {
     const fetchDashboardData = async () => {
       const token = localStorage.getItem("token");
@@ -57,7 +58,7 @@ const UserDashboard = () => {
     fetchDashboardData();
   }, [navigate]);
 
-  // Function to handle search input change
+  // Handle search input change
   const handleSearchChange = async (e) => {
     const query = e.target.value;
     setSearchQuery(query);
@@ -97,11 +98,11 @@ const UserDashboard = () => {
     }
   };
 
-  // Function to select a shop
+  // Function to select a shop and navigate to the file upload or chat page
   const handleShopSelect = (shop) => {
     setSelectedShop(shop);
     console.log("Selected Shop:", shop); // Handle further actions like opening a chat
-    navigate(`/chat/${shop._id}`); // Navigate to chat page with selected shop
+    navigate(`/file-upload/${shop._id}`); // Navigate to file upload page with selected shop
   };
 
   if (loading) {

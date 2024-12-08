@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const verifyToken = require('../middlewares/verifyToken'); // Middleware for authentication
 const Shop = require('../models/Shop');
-
+const { getUploadedFiles } = require("../controllers/shopController");
 // Search for shops by owner
 router.get('/search', verifyToken, async (req, res) => {
     const { query } = req.query;
@@ -34,7 +34,7 @@ router.get('/search', verifyToken, async (req, res) => {
     }
   });
   
-  router.get('/shops/:shopId', async (req, res) => {
+  router.get('/:shopId', async (req, res) => {
     const { shopId } = req.params; // Extract the shopId from the URL
     try {
       const shop = await Shop.findById(shopId).populate('owner'); // Fetch the shop by ID and populate owner
@@ -53,5 +53,6 @@ router.get('/search', verifyToken, async (req, res) => {
       res.status(500).json({ message: 'Error fetching shop details' });
     }
   });
-  
+  router.get("/:shopId/files", getUploadedFiles);
+
 module.exports = router;

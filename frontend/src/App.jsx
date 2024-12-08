@@ -10,6 +10,7 @@ import OwnerDashboard from "./pages/OwnerDashboard";
 import UserDashboard from "./pages/UserDashboard";
 import SearchShops from "./pages/SearchShops";
 import UserChat from "./pages/UserChat";
+import FileUploadPage from './pages/FileUploadPage';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
         <Route path="/user/signup" element={<UserSignup />} />
         <Route path="/search" element={<SearchShops />} />
         <Route path="/chat/:shopId" element={<UserChat />} />
+        <Route path="/file-upload/:shopId" element={<FileUploadPage />} />
       </Routes>
     </BrowserRouter>
   );

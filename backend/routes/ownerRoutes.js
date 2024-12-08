@@ -55,27 +55,32 @@ router.post("/login", async (req, res) => {
 // Protected route for owner dashboard
 router.get("/owner-dashboard", isAuthenticated, async (req, res) => {
     try {
-        // Fetch the owner's data using the ID from the JWT
-        const owner = await Owner.findById(req.owner.id, "name shopName username");
-
-        if (!owner) {
-            return res.status(404).json({ message: "Owner not found" });
-        }
-
-        res.json({
-            message: "Welcome to the owner dashboard!",
-            owner: {
-                username: owner.username,
-                name: owner.name,
-                shopName: owner.shopName,
-            },
-        });
+      // Log the ownerId from the session/token to confirm it is being passed correctly
+      console.log('Owner ID from session:', req.owner.id);
+  
+      // Fetch the owner's data using the ID from the JWT
+      const owner = await Owner.findById(req.owner.id, "name shopName username");
+  
+      if (!owner) {
+        return res.status(404).json({ message: "Owner not found" });
+      }
+  
+      // Return the owner data
+      res.json({
+        message: "Welcome to the owner dashboard!",
+        owner: {
+            _id: owner._id,
+          username: owner.username,
+          name: owner.name,
+          shopName: owner.shopName,
+        },
+      });
     } catch (error) {
-        console.error("Error fetching owner dashboard data:", error);
-        res.status(500).json({ message: "Server error" });
+      console.error("Error fetching owner dashboard data:", error);
+      res.status(500).json({ message: "Server error" });
     }
-});
-
+  });
+  
 // Logout Route (Client-side should delete the token)
 router.post("/logout", (req, res) => {
     res.status(200).json({ message: "Logged out successfully" });

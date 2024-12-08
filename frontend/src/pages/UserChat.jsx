@@ -10,88 +10,117 @@ const UserChat = ({ userId }) => {
   const [message, setMessage] = useState("");
   const [file, setFile] = useState(null);
   const [ownerId, setOwnerId] = useState(null);
+  const [error, setError] = useState("");
 
+  // Establish socket connection and handle new messages
   useEffect(() => {
     const newSocket = io("http://localhost:5000");
     setSocket(newSocket);
 
     newSocket.emit("joinChat", { userId, shopId });
 
+    // Handle incoming messages
     newSocket.on("receiveMessage", (msg) => {
-      setMessages((prev) => [...prev, msg]);
+      handleMessages(msg);
     });
 
-    return () => newSocket.close();
+    return () => {
+      newSocket.close();
+    };
   }, [shopId, userId]);
 
-  // Fetch shop owner id from the backend (optional)
+  // Fetch the owner's ID for the current shop
   useEffect(() => {
     const fetchOwnerId = async () => {
       try {
         const response = await axios.get(`http://localhost:5000/api/shops/${shopId}`);
-        setOwnerId(response.data.ownerId);
+        const shop = response.data.shop;
+        if (shop && shop.owner) {
+          const ownerId = shop.owner._id; // Access the populated owner details
+          setOwnerId(ownerId);
+        } else {
+          console.error("Owner data is missing in the response.");
+        }
       } catch (error) {
         console.error("Error fetching owner ID:", error);
+        setError("Failed to fetch owner information.");
       }
     };
 
     fetchOwnerId();
   }, [shopId]);
 
+  // Function to handle incoming messages and update state
+  const handleMessages = (msg) => {
+    setMessages((prev) => [...prev, msg]);
+  };
+
+  // Function to send a message
   const sendMessage = async () => {
-    // Don't send if both message and file are empty
-    if (!message.trim() && !file) return;
+    if (!message.trim() || !ownerId) {
+      setError("Please provide a message and ensure the owner is available.");
+      return; // Ensure ownerId and message are not empty
+    }
 
     const payload = {
+      sender: "User",
       senderId: userId,
+      receiver: "Owner",
       receiverId: ownerId,
-      shopId: shopId,
-      text: message.trim() || null, // If message is empty, set to null
-      fileUrl: null, // Handle file separately
+      message,
     };
 
-    // Handle sending text message
-    if (message.trim()) {
-      setMessages((prev) => [...prev, { sender: "You", text: message }]);
-      setMessage(""); // Clear the message field
-    }
-
-    // Handle sending file
-    if (file) {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("userId", userId); // Add userId to the form data
-      formData.append("shopId", shopId); // Add shopId to the form data
-      formData.append("ownerId", ownerId); // Add ownerId to the form data
-
-      try {
-        const response = await axios.post("http://localhost:5000/api/chat/upload", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-
-        const fileUrl = response.data.fileUrl;
-        payload.fileUrl = fileUrl; // Assign the file URL to the payload
-
-        setMessages((prev) => [
-          ...prev,
-          { sender: "You", text: <a href={fileUrl} target="_blank" rel="noopener noreferrer">View File</a> },
-        ]);
-      } catch (error) {
-        console.error("Error uploading file:", error);
-      }
-    }
-
-    // Send the message or file (or both) to the backend
     try {
-      await axios.post("http://localhost:5000/api/chat/messages", payload);
-      socket.emit("sendMessage", payload);
+      setMessages((prev) => [...prev, { sender: "You", text: message }]);
+      setMessage(""); // Reset message input
+
+      const response = await axios.post("http://localhost:5000/api/chat/messages", payload);
+
+      if (response.status === 201) {
+        socket.emit("sendMessage", payload); // Emit the message via socket if successful
+      } else {
+        setError(response.data.error || "Failed to send message.");
+      }
     } catch (error) {
       console.error("Error sending message:", error);
+      setError("Failed to send message.");
+    }
+  };
+
+  // Function to upload a file
+  const uploadFile = async () => {
+    if (!file) {
+      setError("Please select a file to upload.");
+      return; // Ensure a file is selected
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("userId", userId);
+    formData.append("shopId", shopId);
+    formData.append("ownerId", ownerId);
+
+    try {
+      const response = await axios.post("http://localhost:5000/api/chat/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      const fileUrl = response.data.fileUrl;
+      setMessages((prev) => [
+        ...prev,
+        { sender: "You", text: <a href={fileUrl} target="_blank" rel="noopener noreferrer">View File</a> },
+      ]);
+      setFile(null); // Reset file input
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      setError("Failed to upload file.");
     }
   };
 
   return (
     <div>
+      {error && <div className="error-message">{error}</div>}
+
       <div className="chat-messages">
         {messages.map((msg, idx) => (
           <div key={idx}>
@@ -100,19 +129,23 @@ const UserChat = ({ userId }) => {
         ))}
       </div>
 
-      <input
-        type="text"
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        placeholder="Type a message"
-      />
-      <button onClick={sendMessage}>Send</button>
+      <div className="chat-input">
+        <input
+          type="text"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Type a message"
+        />
+        <button onClick={sendMessage}>Send</button>
+      </div>
 
-      <input
-        type="file"
-        onChange={(e) => setFile(e.target.files[0])}
-      />
-      <button onClick={sendMessage}>Upload</button>
+      <div className="file-upload">
+        <input
+          type="file"
+          onChange={(e) => setFile(e.target.files[0])}
+        />
+        <button onClick={uploadFile}>Upload</button>
+      </div>
     </div>
   );
 };
