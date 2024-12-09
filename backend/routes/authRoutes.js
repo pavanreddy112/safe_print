@@ -91,11 +91,11 @@ router.post("/owner/signup", async (req, res) => {
   // for users 
   router.post("/user/signup", async (req, res) => {
     try {
-      const { email, password } = req.body;
+      const { name, email, password } = req.body;
   
       // Validate input
-      if (!email || !password) {
-        return res.status(400).json({ message: "Email and password are required" });
+      if (!name || !email || !password) {
+        return res.status(400).json({ message: "Name, email, and password are required" });
       }
   
       // Check if user already exists
@@ -107,15 +107,15 @@ router.post("/owner/signup", async (req, res) => {
       // Hash the password before saving
       const hashedPassword = await bcrypt.hash(password, 10);
   
-      // Create a new user with email and password
+      // Create a new user with name, email, and password
       const newUser = new User({
+        name,
         email,
         password: hashedPassword,
       });
   
       // Save the new user to the database
       await newUser.save();
-     
   
       // Return a success response
       res.status(201).json({ message: "User created successfully" });
@@ -124,5 +124,4 @@ router.post("/owner/signup", async (req, res) => {
       res.status(500).json({ message: "Server error" });
     }
   });
- 
 module.exports = router;

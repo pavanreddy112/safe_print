@@ -150,20 +150,20 @@ router.delete('/delete-document/:documentId', async (req, res) => {
       return res.status(400).json({ message: 'File URL not found in the document' });
     }
 
-    // Extract the S3 key from the file URL (assuming the URL is in the format of the S3 bucket's URL)
-    const key = fileUrl.split('/').pop(); // Extract the filename from the URL (or S3 key)
+    // Extract the S3 key from the file URL
+    const s3Key = new URL(fileUrl).pathname.substring(1); // Get the S3 object key (adjust if needed)
 
     // Set the parameters for the S3 deleteObject
     const params = {
       Bucket: process.env.AWS_BUCKET_NAME, // Use the bucket name from environment variables
-      Key: key, // The key is the filename from the URL
+      Key: s3Key, // The key is the filename from the URL
     };
 
     // Delete the object from the S3 bucket
     await s3.deleteObject(params).promise();
     console.log(`Document with ID ${documentId} deleted from S3`);
 
-    // Now, delete the document from the Message collection
+    // Delete the document from the Message collection
     await Message.findByIdAndDelete(documentId);
 
     console.log(`Document with ID ${documentId} deleted from the database`);
@@ -171,11 +171,10 @@ router.delete('/delete-document/:documentId', async (req, res) => {
     // Send success response
     res.status(200).json({ message: 'Document deleted successfully' });
   } catch (error) {
-    console.error('Error deleting document:', error);
+    console.error('Error deleting document:', error.message || error);
     res.status(500).json({ message: 'Error deleting document', error });
   }
 });
-
 
 
 module.exports = router;

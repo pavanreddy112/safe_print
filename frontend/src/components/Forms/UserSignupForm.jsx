@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 const UserSignupForm = () => {
+  const [name, setName] = useState(""); // New state for name
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -11,7 +12,7 @@ const UserSignupForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const userData = { email, password };
+    const userData = { name, email, password }; // Include name in the payload
 
     try {
       const response = await fetch("http://localhost:5000/api/user/signup", {
@@ -38,12 +39,19 @@ const UserSignupForm = () => {
 
   // Handle Google signup
   const handleGoogleSignup = () => {
-    window.location.href = "http://localhost:5000/auth/google";  // Redirect to Google authentication route
+    window.location.href = "http://localhost:5000/auth/google"; // Redirect to Google authentication route
   };
 
   return (
     <form onSubmit={handleSubmit}>
       <h2>Sign up with Email</h2>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        required
+        placeholder="Name" // New input for name
+      />
       <input
         type="email"
         value={email}
@@ -68,11 +76,9 @@ const UserSignupForm = () => {
         Sign up with Google
       </button>
       <button type="button" onClick={() => navigate("/user/login")}>
-          Login
-        </button>
-      
+        Login
+      </button>
     </form>
-    
   );
 };
 

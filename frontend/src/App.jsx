@@ -17,7 +17,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<RoleSelection />} />
-        <Route path="/login" element={<OwnerLoginForm />} />
+        <Route path="/owner/login" element={<OwnerLoginForm />} />
         <Route path="/user/login" element={<UserLoginForm />} />
         <Route path="/owner-dashboard" element={<OwnerDashboard />} />
         <Route path="/user-dashboard" element={<UserDashboard />} />
