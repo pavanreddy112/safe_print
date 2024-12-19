@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const algorithm = 'aes-256-gcm';
 const secretKey = process.env.ENCRYPTION_KEY || crypto.randomBytes(32);
+
 const encrypt = (buffer) => {
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv(algorithm, secretKey, iv);

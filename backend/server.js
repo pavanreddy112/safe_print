@@ -15,10 +15,9 @@ dotenv.config();
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const ownerRoutes = require("./routes/ownerRoutes");
-const chatRoutes = require("./routes/chatRoutes");
-const fileRoutes = require("./routes/fileRoutes");
+
 const shopRoutes = require('./routes/shopRoutes');
-const messageRoutes = require('./routes/messageRoutes');
+
 const documentRoutes = require('./routes/documentRoutes');
 
 

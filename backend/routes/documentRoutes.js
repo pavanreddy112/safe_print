@@ -5,6 +5,7 @@ const Message = require('../models/Message');
 const verifyToken = require("../middlewares/verifyToken");
 const { encrypt, decrypt } = require('../utils/encryption');
 const sanitizeFilename = require('sanitize-filename');
+const User = require('../models/User');
 
 const router = express.Router();
 const storage = multer.memoryStorage();
@@ -23,14 +24,32 @@ router.get('/received-documents/:ownerId', verifyToken, async (req, res) => {
     const { ownerId } = req.params;
     console.log(`Fetching documents for ownerId: ${ownerId}`);
 
+    // Fetch messages for the owner
     const messages = await Message.find({ 
       receiverId: ownerId, 
       receiver: 'Owner' 
     }).sort({ timestamp: -1 });
-    
+
+    // Fetch sender details manually and add to each message
+    const documentsWithSenderDetails = await Promise.all(messages.map(async (msg) => {
+      // Try to find the sender by senderId
+      let sender = await User.findById(msg.senderId).select('name username');
+      
+      // If sender not found, set as "Unknown"
+      if (!sender) {
+        sender = { name: "Unknown", username: "Unknown" };
+      }
+      
+      return {
+        ...msg.toObject(),
+        senderName: sender.name,
+        senderUsername: sender.username
+      };
+    }));
+
     res.status(200).json({
       message: 'Documents fetched successfully.',
-      documents: messages,
+      documents: documentsWithSenderDetails,
     });
   } catch (error) {
     console.error('Error fetching documents:', error);

@@ -11,13 +11,19 @@ const OwnerDashboard = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
 
+  // Check token validity
+  const validateToken = () => {
+    if (!token) {
+      console.error("No token found");
+      navigate("/login");
+      return false;
+    }
+    return true;
+  };
+
   useEffect(() => {
     const fetchOwnerData = async () => {
-      if (!token) {
-        console.error("No token found");
-        navigate("/login");
-        return;
-      }
+      if (!validateToken()) return;
 
       try {
         const ownerResponse = await fetch(
@@ -50,6 +56,7 @@ const OwnerDashboard = () => {
     fetchOwnerData();
   }, [navigate, token]);
 
+  // Fetch documents when owner is available
   useEffect(() => {
     const fetchDocuments = async () => {
       if (owner && owner._id) {
@@ -74,6 +81,7 @@ const OwnerDashboard = () => {
     }
   }, [owner, token]);
 
+  // Handle QR code download
   const handleQRCodeDownload = async (type) => {
     try {
       const endpoint =
@@ -89,7 +97,6 @@ const OwnerDashboard = () => {
 
       const { qrCode } = response.data;
 
-      // Convert base64 to a downloadable file
       const link = document.createElement("a");
       link.href = qrCode;
       link.download = `qr-code-${type}.png`;
@@ -101,6 +108,7 @@ const OwnerDashboard = () => {
     }
   };
 
+  // Handle document printing
   const handlePrint = async (documentId) => {
     if (!token) {
       console.error("No token found");
@@ -170,6 +178,34 @@ const OwnerDashboard = () => {
       console.error("Error handling print:", error);
     }
   };
+
+  // Fetch new documents dynamically
+  const fetchNewDocuments = async () => {
+    try {
+      if (owner && owner._id) {
+        const { data } = await axios.get(
+          `http://localhost:5000/api/chat/received-documents/${owner._id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        setDocuments(data.documents);
+      }
+    } catch (error) {
+      console.error("Error fetching new documents:", error);
+    }
+  };
+
+  // Set up polling for new documents
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchNewDocuments();
+    }, 5000); // Poll every 5 seconds for new documents
+
+    return () => clearInterval(interval); // Cleanup on component unmount
+  }, [owner, token]);
 
   if (loading) {
     return <h1>Loading...</h1>;
