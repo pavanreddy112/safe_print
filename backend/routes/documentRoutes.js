@@ -1,57 +1,36 @@
 const express = require('express');
 const multer = require('multer');
-const s3 = require('../config/s3Config'); // Import the configured S3 instance
-const Message = require('../models/Message'); // Assuming Message schema is used
-const { authenticate } = require('../middlewares/authMiddleware'); // Correctly import the authentication middleware
-const Document = require('../models/Document'); // Assuming you have a Document model to store documents
-const router = express.Router();
-const User = require('../models/User'); 
+const s3 = require('../config/s3Config');
+const Message = require('../models/Message');
 const verifyToken = require("../middlewares/verifyToken");
+const { encrypt, decrypt } = require('../utils/encryption');
+const sanitizeFilename = require('sanitize-filename');
 
-// Route to get all received documents for a specific owner
+const router = express.Router();
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
+// Helper function to sanitize filename
+const createSafeFileName = (originalName) => {
+  // Remove spaces and special characters, replace with underscores
+  const sanitized = sanitizeFilename(originalName).replace(/\s+/g, '_');
+  return `${Date.now()}-${sanitized}`;
+};
+
+// Get received documents
 router.get('/received-documents/:ownerId', verifyToken, async (req, res) => {
   try {
     const { ownerId } = req.params;
-
     console.log(`Fetching documents for ownerId: ${ownerId}`);
 
-    if (!ownerId) {
-      return res.status(400).json({ message: 'Owner ID is required.' });
-    }
-
-    // Query the Message collection for all documents with the specified receiverId
-    const messages = await Message.find({ receiverId: ownerId, receiver: 'Owner' })
-      .select('fileUrl sender senderId message timestamp') // Select fields to return
-      .sort({ timestamp: -1 }); // Sort by timestamp (newest first)
-
-    if (!messages || messages.length === 0) {
-      return res.status(404).json({ message: 'No documents found.' });
-    }
-
-    console.log(`Found ${messages.length} documents for ownerId: ${ownerId}`);
-
-    // Fetch sender details from the User collection for each message senderId
-    const documentsWithSender = await Promise.all(messages.map(async (msg) => {
-      // Fetch sender information from the User collection by senderId
-      const sender = await User.findById(msg.senderId).select('name username');
-
-      // Check if sender was found and log details
-      const senderName = sender ? sender.name : 'Unknown';
-      const senderUsername = sender ? sender.username : 'Unknown';
-      console.log(`Sender Name: ${senderName}, Sender Username: ${senderUsername}`);
-
-      // Return the document with sender information
-      return {
-        ...msg.toObject(), // Convert mongoose document to plain JavaScript object
-        senderName: senderName, // Add sender's name
-        senderUsername: senderUsername, // Add sender's username
-      };
-    }));
-
-    // Return the documents with sender details
+    const messages = await Message.find({ 
+      receiverId: ownerId, 
+      receiver: 'Owner' 
+    }).sort({ timestamp: -1 });
+    
     res.status(200).json({
       message: 'Documents fetched successfully.',
-      documents: documentsWithSender,
+      documents: messages,
     });
   } catch (error) {
     console.error('Error fetching documents:', error);
@@ -59,122 +38,188 @@ router.get('/received-documents/:ownerId', verifyToken, async (req, res) => {
   }
 });
 
+// Decrypt and serve file
+router.get('/decrypt-file/:documentId', verifyToken, async (req, res) => {
+  try {
+    const { documentId } = req.params;
+    console.log('Attempting to decrypt document:', documentId);
 
-// Set up multer for file handling (memory storage to directly handle file buffer)
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+    const document = await Message.findOne({
+      _id: documentId,
+      receiverId: req.user.id
+    });
 
-// Route to handle file upload from user to owner
+    if (!document) {
+      console.log('Document not found or unauthorized access');
+      return res.status(404).json({ message: 'Document not found or unauthorized' });
+    }
+
+    const fileKey = decodeURIComponent(document.fileUrl.split('/').slice(-1)[0]);
+    console.log('S3 File Key:', fileKey);
+    
+    try {
+      const s3File = await s3.getObject({
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: fileKey
+      }).promise();
+
+      console.log('Successfully retrieved file from S3');
+
+      const decryptedData = decrypt(
+        s3File.Body,
+        document.iv,
+        Buffer.from(document.encryptedKey, 'hex')
+      );
+
+      // Set appropriate content type based on file extension
+      const fileExtension = fileKey.split('.').pop().toLowerCase();
+      let contentType = 'application/octet-stream';
+      
+      if (fileExtension === 'pdf') {
+        contentType = 'application/pdf';
+      } else if (['jpg', 'jpeg'].includes(fileExtension)) {
+        contentType = 'image/jpeg';
+      } else if (fileExtension === 'png') {
+        contentType = 'image/png';
+      } else if (fileExtension === 'gif') {
+        contentType = 'image/gif';
+      }
+
+      res.set({
+        'Content-Type': contentType,
+        'Content-Security-Policy': "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:;",
+        'X-Frame-Options': 'SAMEORIGIN',
+        'X-Content-Type-Options': 'nosniff',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, private'
+      });
+      
+      res.send(decryptedData);
+    } catch (s3Error) {
+      console.error('Error fetching from S3:', s3Error);
+      if (s3Error.code === 'NoSuchKey') {
+        await Message.findByIdAndDelete(documentId);
+        return res.status(404).json({ 
+          message: 'File not found in storage',
+          error: 'The file has been deleted or moved'
+        });
+      }
+      res.status(500).json({ 
+        message: 'Failed to retrieve file from storage',
+        error: s3Error.message
+      });
+    }
+  } catch (error) {
+    console.error('Error decrypting file:', error);
+    res.status(500).json({ 
+      message: 'Failed to decrypt file',
+      error: error.message 
+    });
+  }
+});
+
+// Upload file
 router.post('/upload', upload.single('file'), async (req, res) => {
-  const { userId, shopId, ownerId } = req.body;
-
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded.' });
   }
-
+  
+  const { userId, shopId, ownerId } = req.body;
   if (!userId || !shopId || !ownerId) {
     return res.status(400).json({ message: 'User ID, Shop ID, and Owner ID are required.' });
   }
 
   try {
-    // Log the file and data for debugging
-    console.log('Received file upload request...');
-    console.log('File received:', req.file.originalname);
-    console.log('User ID:', userId);
-    console.log('Shop ID:', shopId);
-    console.log('Owner ID:', ownerId);
-
-    // Generate a unique filename based on current timestamp
-    const fileName = Date.now() + '-' + req.file.originalname;
-
-    // S3 upload parameters
+    console.log('Processing file upload...');
+    
+    // Create safe filename without spaces
+    const safeFileName = createSafeFileName(req.file.originalname);
+    console.log('Original filename:', req.file.originalname);
+    console.log('Safe filename:', safeFileName);
+    
+    // Encrypt the file
+    const { iv, encryptedData, authTag } = encrypt(req.file.buffer);
+    
     const uploadParams = {
-      Bucket: process.env.AWS_BUCKET_NAME, // Bucket name from environment variable
-      Key: fileName, // Unique key for the file
-      Body: req.file.buffer, // File data from the request
-      ContentType: req.file.mimetype, // Content type (MIME type) of the file
+      Bucket: process.env.AWS_BUCKET_NAME,
+      Key: safeFileName,
+      Body: encryptedData,
+      ContentType: req.file.mimetype,
+      Metadata: {
+        'iv': iv,
+        'auth-tag': authTag.toString('hex')
+      }
     };
 
-    // Log the S3 upload parameters
-    console.log('Preparing to upload to S3...');
-    console.log('S3 Upload Params:', uploadParams);
+    console.log('Uploading file to S3:', safeFileName);
 
-    // Upload the file to S3 using the AWS SDK
-    s3.upload(uploadParams, async (err, data) => {
-      if (err) {
-        console.error('Error uploading file to S3:', err);
-        return res.status(500).json({ message: 'Failed to upload file. Please try again.' });
-      }
+    const uploadResult = await s3.upload(uploadParams).promise();
+    console.log('File uploaded successfully to S3:', uploadResult.Location);
 
-      // Log the successful upload
-      console.log('File uploaded successfully to S3');
-      const fileUrl = data.Location; // The URL of the uploaded file
+    const newMessage = new Message({
+      sender: 'User',
+      senderId: userId,
+      receiver: 'Owner',
+      receiverId: ownerId,
+      message: `File uploaded: ${req.file.originalname}`,
+      fileUrl: uploadResult.Location,
+      iv: iv,
+      encryptedKey: authTag.toString('hex'),
+      timestamp: new Date(),
+    });
 
-      // Save the file URL, userId, and ownerId in the Message model
-      const newMessage = new Message({
-        sender: 'User',
-        senderId: userId,
-        receiver: 'Owner',
-        receiverId: ownerId,
-        message: `File uploaded: ${fileUrl}`,
-        fileUrl: fileUrl, // Save the file URL
-        timestamp: new Date(),
-      });
+    await newMessage.save();
+    console.log('Message saved to database with ID:', newMessage._id);
 
-      await newMessage.save();
-
-      res.status(200).json({
-        message: 'File uploaded successfully.',
-        fileUrl: fileUrl,
-      });
+    res.status(200).json({
+      message: 'File uploaded successfully.',
+      fileUrl: uploadResult.Location,
     });
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ message: 'Failed to upload file. Please try again.' });
+    console.error('Upload error:', error);
+    res.status(500).json({ message: 'Failed to upload file.' });
   }
 });
-router.delete('/delete-document/:documentId', async (req, res) => {
-  const { documentId } = req.params;
 
+// Delete document
+router.delete('/delete-document/:documentId', verifyToken, async (req, res) => {
+  const { documentId } = req.params;
+  
   try {
-    // Fetch the document by ID from the Message collection
-    const document = await Message.findById(documentId);
+    const document = await Message.findOne({
+      _id: documentId,
+      receiverId: req.user.id
+    });
 
     if (!document) {
-      return res.status(404).json({ message: 'Document not found' });
+      return res.status(404).json({ message: 'Document not found or unauthorized' });
     }
 
-    const fileUrl = document.fileUrl; // Get the file URL from the document
-
+    const fileUrl = document.fileUrl;
     if (!fileUrl) {
       return res.status(400).json({ message: 'File URL not found in the document' });
     }
 
-    // Extract the S3 key from the file URL
-    const s3Key = new URL(fileUrl).pathname.substring(1); // Get the S3 object key (adjust if needed)
+    const s3Key = decodeURIComponent(new URL(fileUrl).pathname.substring(1));
+    
+    try {
+      await s3.deleteObject({
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: s3Key,
+      }).promise();
+      console.log('File deleted from S3:', s3Key);
+    } catch (s3Error) {
+      console.error('Error deleting from S3:', s3Error);
+      // Continue with database cleanup even if S3 deletion fails
+    }
 
-    // Set the parameters for the S3 deleteObject
-    const params = {
-      Bucket: process.env.AWS_BUCKET_NAME, // Use the bucket name from environment variables
-      Key: s3Key, // The key is the filename from the URL
-    };
-
-    // Delete the object from the S3 bucket
-    await s3.deleteObject(params).promise();
-    console.log(`Document with ID ${documentId} deleted from S3`);
-
-    // Delete the document from the Message collection
     await Message.findByIdAndDelete(documentId);
-
-    console.log(`Document with ID ${documentId} deleted from the database`);
-
-    // Send success response
+    console.log('Document deleted from database:', documentId);
+    
     res.status(200).json({ message: 'Document deleted successfully' });
   } catch (error) {
-    console.error('Error deleting document:', error.message || error);
-    res.status(500).json({ message: 'Error deleting document', error });
+    console.error('Error deleting document:', error);
+    res.status(500).json({ message: 'Error deleting document', error: error.message });
   }
 });
-
 
 module.exports = router;

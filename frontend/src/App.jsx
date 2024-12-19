@@ -11,12 +11,17 @@ import UserDashboard from "./pages/UserDashboard";
 import SearchShops from "./pages/SearchShops";
 import UserChat from "./pages/UserChat";
 import FileUploadPage from './pages/FileUploadPage';
+import Home from './pages/Index';
+import QRCodeDownload from "./pages/QRCodeDownload";
+
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<RoleSelection />} />
+        <Route path="/home" element={<Home />} />
+        <Route path="/qr-code-download" element={<QRCodeDownload />} />
         <Route path="/owner/login" element={<OwnerLoginForm />} />
         <Route path="/user/login" element={<UserLoginForm />} />
         <Route path="/owner-dashboard" element={<OwnerDashboard />} />

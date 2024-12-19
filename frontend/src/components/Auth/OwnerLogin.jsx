@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { FaUser, FaLock } from "react-icons/fa"; // Importing icons
 
 const OwnerLoginForm = () => {
   const [username, setUsername] = useState("");
@@ -39,32 +40,44 @@ const OwnerLoginForm = () => {
   };
 
   return (
-    <div className="login-form-container">
-      <form onSubmit={handleSubmit}>
-        <h2>Owner Login</h2>
-        <div className="form-group">
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-            placeholder="Username"
-            className="form-input"
-          />
-        </div>
-        <div className="form-group">
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            placeholder="Password"
-            className="form-input"
-          />
-        </div>
-        {error && <p className="error-message">{error}</p>}
-        <button type="submit" className="submit-button">Login</button>
-      </form>
+    <div id="owner-login-wrapper">
+      <div className="login-form-container">
+        <form onSubmit={handleSubmit}>
+          <h2>Owner Login</h2>
+          <div className="form-group">
+            <label htmlFor="username">
+              <FaUser className="input-icon" />
+              Username
+            </label>
+            <input
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              placeholder="Enter your username"
+              className="form-input"
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="password">
+              <FaLock className="input-icon" />
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="Enter your password"
+              className="form-input"
+            />
+          </div>
+          {error && <p className="error-message">{error}</p>}
+          <button type="submit" className="submit-button">Login</button>
+        </form>
+      </div>
     </div>
   );
 };

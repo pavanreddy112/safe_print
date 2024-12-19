@@ -1,39 +1,50 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import {
+  FaArrowCircleLeft,
+  FaShieldAlt,
+  FaFileUpload,
+  FaStore,
+  FaLock,
+  FaTrashAlt,
+} from 'react-icons/fa';
 
 const FileUploadPage = () => {
-  const { shopId } = useParams(); // Get shopId from URL
+  const { shopId } = useParams();
+  const navigate = useNavigate();
   const [selectedFile, setSelectedFile] = useState(null);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [ownerId, setOwnerId] = useState(null); // State to store the ownerId
-  const [isUploading, setIsUploading] = useState(false); // Flag to track if file is being uploaded
+  const [ownerId, setOwnerId] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [uploadedFileDetails, setUploadedFileDetails] = useState(null);
+  const [shopName, setShopName] = useState('');
 
-  // Fetch the ownerId based on the shopId
   useEffect(() => {
-    const fetchOwnerId = async () => {
+    const fetchShopInfo = async () => {
       try {
-        const response = await axios.get(`http://localhost:5000/api/shops/${shopId}`);
+        const response = await axios.get(
+          `http://localhost:5000/api/shops/${shopId}`
+        );
         const shop = response.data.shop;
         if (shop && shop.owner) {
-          const ownerId = shop.owner._id; // Access the populated owner details
-          setOwnerId(ownerId); // Set the ownerId in the state
-          console.log("Fetched Owner ID:", ownerId); // Log the fetched ownerId
+          setOwnerId(shop.owner._id);
+          setShopName(
+            shop.name.charAt(0).toUpperCase() + shop.name.slice(1)
+          );
         } else {
-          console.error("Owner data is missing in the response.");
-          setError("Owner information is missing.");
+          setError('Shop information is missing.');
         }
       } catch (error) {
-        console.error("Error fetching owner ID:", error);
-        setError("Failed to fetch owner information.");
+        setError('Failed to fetch shop information.');
       }
     };
 
-    fetchOwnerId();
-  }, [shopId]); // Fetch ownerId whenever shopId changes
+    fetchShopInfo();
+  }, [shopId]);
 
-  // Extract userId from the JWT token in localStorage
   const getUserIdFromToken = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -42,111 +53,162 @@ const FileUploadPage = () => {
     }
 
     try {
-      const jwt_decode = (await import('jwt-decode')).default; // Dynamic import
-      const decodedToken = jwt_decode(token); // Decode the JWT
-      console.log("Decoded Token:", decodedToken); // Log the decoded token to inspect the structure
-      return decodedToken.id; // Use 'id' instead of 'userId' from the decoded token
+      const jwt_decode = (await import('jwt-decode')).default;
+      const decodedToken = jwt_decode(token);
+      return decodedToken.id;
     } catch (error) {
-      console.error("Invalid token:", error);
-      setError("Failed to decode the token.");
+      setError('Failed to decode the token.');
       return null;
     }
   };
 
-  // Handle file selection
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       setSelectedFile(file);
+      setError('');
     }
   };
 
-  // Handle file upload
   const handleFileUpload = async () => {
-    if (isUploading) {
-      return; // Prevent the upload if it's already in progress
-    }
+    if (isUploading) return;
 
-    setIsUploading(true); // Set uploading flag to true
-    console.log("Uploading file...");
+    setIsUploading(true);
+    setError('');
+    setSuccessMessage('');
+    setProgress(0);
 
     if (!selectedFile) {
       setError('Please select a file to upload.');
-      setIsUploading(false); // Reset uploading flag
+      setIsUploading(false);
       return;
     }
 
     const userId = await getUserIdFromToken();
     if (!userId) {
-      setIsUploading(false); // Reset uploading flag
-      return; // If userId is not available, exit the upload process
+      setIsUploading(false);
+      return;
     }
 
     if (!ownerId) {
       setError('Owner ID is not available.');
-      setIsUploading(false); // Reset uploading flag
+      setIsUploading(false);
       return;
     }
 
-    // Log the user ID and owner ID
-    console.log("User ID (from token):", userId);
-    console.log("Owner ID (from shop data):", ownerId);
-
     const formData = new FormData();
     formData.append('file', selectedFile);
-    formData.append('userId', userId); // Add userId extracted from the token
-    formData.append('shopId', shopId);  // Add shopId from state or URL
-    formData.append('ownerId', ownerId);  // Add ownerId
+    formData.append('userId', userId);
+    formData.append('shopId', shopId);
+    formData.append('ownerId', ownerId);
 
     try {
-      console.log("Sending request to server...");
-      const response = await axios.post('http://localhost:5000/api/chat/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-
-      // Log the server response
-      console.log("Server response:", response);
+      const response = await axios.post(
+        'http://localhost:5000/api/chat/upload',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            setProgress(percentCompleted);
+          },
+        }
+      );
 
       if (response.status === 200) {
         setSuccessMessage('File uploaded successfully!');
-        setSelectedFile(null); // Reset file input
+        setUploadedFileDetails({
+          name: selectedFile.name,
+          size: selectedFile.size,
+        });
+        setSelectedFile(null);
       } else {
         setError('Failed to upload file. Please try again.');
       }
     } catch (error) {
-      console.error('Error uploading file:', error);
       setError('Failed to upload file. Please try again.');
     }
 
-    setIsUploading(false); // Reset uploading flag
+    setIsUploading(false);
   };
 
   return (
-    <div>
-      <h1>Upload Files for Shop {shopId}</h1>
+    <div className="wrapper">
+      <button onClick={() => navigate(-1)} className="back-button">
+        <FaArrowCircleLeft />
+      </button>
 
-      {/* Display any error or success message */}
-      {error && <div style={{ color: 'red' }}>{error}</div>}
-      {successMessage && <div style={{ color: 'green' }}>{successMessage}</div>}
-
-      {/* File Upload Form */}
-      <div>
-        <input
-          type="file"
-          onChange={handleFileChange}
-        />
-        <button onClick={handleFileUpload} disabled={isUploading}>
-          {isUploading ? 'Uploading...' : 'Upload File'}
-        </button>
+      <div className="header">
+        <h1 className="title">Upload Secure Document</h1>
+        <p className="shop-info">
+          <FaStore /> Shop: <span className="shop-name">{shopName}</span>
+        </p>
+        <p className="shop-id">
+          Shop ID: <span>{shopId}</span>
+        </p>
+        <p className="description">
+          Your document is safe with us. <FaShieldAlt /> All files are encrypted
+          and deleted after printing.
+        </p>
       </div>
 
-      {/* Confirmation message after file upload */}
-      {successMessage && (
-        <div>
-          <p>Confirmation: File uploaded successfully! All good.</p>
+      {error && <div className="error-message">{error}</div>}
+      {successMessage && <div className="success-message">{successMessage}</div>}
+
+      <div className="file-upload-section">
+        <input
+          id="file-upload"
+          type="file"
+          onChange={handleFileChange}
+          className="file-upload-input"
+        />
+        <label htmlFor="file-upload" className="file-upload-label">
+          <FaFileUpload /> Select a file
+        </label>
+      </div>
+
+      {selectedFile && (
+        <div className="file-preview">
+          <p>
+            <strong>Selected File:</strong> {selectedFile.name}
+          </p>
+        </div>
+      )}
+
+      <button
+        onClick={handleFileUpload}
+        disabled={isUploading}
+        className="upload-button"
+      >
+        {isUploading ? 'Uploading...' : 'Upload File'}
+      </button>
+
+      {isUploading && (
+        <div className="progress-area">
+          <div
+            className="progress-bar"
+            style={{ width: `${progress}%` }}
+          ></div>
+          <p>{progress}%</p>
+        </div>
+      )}
+
+      {uploadedFileDetails && (
+        <div className="uploaded-area">
+          <p>
+            <FaLock /> Your file "{uploadedFileDetails.name}" has been encrypted
+            and securely uploaded.
+          </p>
+          <p>Size: {(uploadedFileDetails.size / 1024).toFixed(2)} KB</p>
+          <p>
+            <FaTrashAlt /> Files are deleted after printing to ensure your
+            privacy.
+          </p>
         </div>
       )}
     </div>

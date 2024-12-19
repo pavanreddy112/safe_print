@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+// import "./UserSignupForm.css"; // Link to the external CSS file
 
 const UserSignupForm = () => {
-  const [name, setName] = useState(""); // New state for name
+  const [name, setName] = useState(""); // State for name
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -15,7 +16,7 @@ const UserSignupForm = () => {
     const userData = { name, email, password }; // Include name in the payload
 
     try {
-      const response = await fetch("http://localhost:5000/api/user/signup", {
+      const response = await fetch("http://localhost:5000/api/users/signup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -39,46 +40,61 @@ const UserSignupForm = () => {
 
   // Handle Google signup
   const handleGoogleSignup = () => {
-    window.location.href = "http://localhost:5000/auth/google"; // Redirect to Google authentication route
+    window.location.href = "http://localhost:5000/api/auth/google"; // Corrected route for Google authentication
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <h2>Sign up with Email</h2>
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        required
-        placeholder="Name" // New input for name
-      />
-      <input
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-        placeholder="Email"
-      />
-      <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-        placeholder="Password"
-      />
-      {error && <p>{error}</p>}
-      <button type="submit">Sign up</button>
+    <div className="signup-container">
+      <div className="signup-card">
+        <h2 className="signup-title">Sign up with Email</h2>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className="form-input"
+              placeholder="Name"
+            />
+          </div>
+          <div className="form-group">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="form-input"
+              placeholder="Email"
+            />
+          </div>
+          <div className="form-group">
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="form-input"
+              placeholder="Password"
+            />
+          </div>
+          {error && <p className="error-message">{error}</p>}
+          <button type="submit" className="signup-button">Sign up</button>
+        </form>
 
-      <hr />
+        <hr />
 
-      {/* Sign up with Google button */}
-      <button type="button" onClick={handleGoogleSignup}>
-        Sign up with Google
-      </button>
-      <button type="button" onClick={() => navigate("/user/login")}>
-        Login
-      </button>
-    </form>
+        {/* Sign up with Google button */}
+        <button type="button" className="signup-button" onClick={handleGoogleSignup}>
+          Sign up with Google
+        </button>
+
+        <p className="login-prompt">
+          Already have an account?{" "}
+          <a href="/user/login" className="login-link">Login</a>
+        </p>
+      </div>
+    </div>
   );
 };
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+// import "./UserLoginForm.css"; // Link to the external CSS file
 
 const UserLoginForm = () => {
   const [email, setEmail] = useState("");
@@ -22,14 +23,10 @@ const UserLoginForm = () => {
       });
 
       const data = await response.json();
-      console.log(data); // Log the response to check the structure
 
       if (response.ok) {
         if (data.token) {
-          // Store the token in localStorage
           localStorage.setItem("token", data.token);
-
-          // Redirect to the user's dashboard after successful login
           navigate("/user-dashboard");
         } else {
           setError("No token received in response.");
@@ -44,32 +41,42 @@ const UserLoginForm = () => {
   };
 
   return (
-    <div className="login-form-container">
-      <form onSubmit={handleSubmit}>
-        <h2>User Login</h2>
-        <div className="form-group">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            placeholder="Email"
-            className="form-input"
-          />
-        </div>
-        <div className="form-group">
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            placeholder="Password"
-            className="form-input"
-          />
-        </div>
-        {error && <p className="error-message">{error}</p>}
-        <button type="submit" className="submit-button">Login</button>
-      </form>
+    <div className="login-container">
+      <div className="login-card">
+        <h2 className="login-title">User Login</h2>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="email" className="form-label">Email Address</label>
+            <input
+              type="email"
+              id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="form-input"
+              placeholder="Enter your email"
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="password" className="form-label">Password</label>
+            <input
+              type="password"
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="form-input"
+              placeholder="Enter your password"
+            />
+          </div>
+          {error && <p className="error-message">{error}</p>}
+          <button type="submit" className="login-button">Login</button>
+          <p className="signup-prompt">
+            Don’t have an account?{" "}
+            <a href="/user/signup" className="signup-link">Sign Up</a>
+          </p>
+        </form>
+      </div>
     </div>
   );
 };

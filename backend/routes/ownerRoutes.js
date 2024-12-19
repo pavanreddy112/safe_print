@@ -3,7 +3,8 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const Owner = require("../models/Owner"); // Assuming you have an Owner model
 const router = express.Router();
-
+const verifyToken = require("../middlewares/verifyToken");
+const QRCode = require('qrcode');
 // Middleware: Check if the owner is authenticated using JWT
 const isAuthenticated = (req, res, next) => {
     const token = req.headers.authorization?.split(" ")[1]; // Bearer <token>
@@ -20,7 +21,36 @@ const isAuthenticated = (req, res, next) => {
         return res.status(401).json({ message: "Unauthorized: Invalid or expired token" });
     }
 };
+router.get("/qr-code/shop-id", verifyToken, async (req, res) => {
+  try {
+    const { shopName, _id } = req.owner; // Assuming req.owner has owner details
+    const qrData = { shopId: _id, shopName };
 
+    // Generate QR code as a data URL
+    const qrCode = await QRCode.toDataURL(JSON.stringify(qrData));
+
+    res.status(200).json({ qrCode });
+  } catch (error) {
+    console.error("Error generating QR code with Shop ID:", error);
+    res.status(500).json({ error: "Failed to generate QR code with Shop ID." });
+  }
+});
+
+// Generate QR Code with Shop Name
+router.get('/generate-qr-code/shop-name', verifyToken, async (req, res) => {
+  try {
+    const { shopName } = req.owner;
+    if (!shopName) {
+      return res.status(400).json({ message: "Shop name not found" });
+    }
+
+    // Generate the QR code logic here.
+    res.status(200).json({ message: `QR Code generated for ${shopName}` });
+  } catch (error) {
+    console.error("Error generating QR code with Shop Name:", error);
+    res.status(500).json({ message: "Error generating QR code", error });
+  }
+});
 // Owner Login Route (POST)
 router.post("/login", async (req, res) => {
     const { username, password } = req.body;

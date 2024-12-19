@@ -1,21 +1,20 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { DocumentTable } from "@/components/document/DocumentTable";
+import { FaQrcode } from "react-icons/fa";
 
 const OwnerDashboard = () => {
   const [owner, setOwner] = useState(null);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const token = localStorage.getItem("token");
 
-  // Fetch the owner data first
   useEffect(() => {
     const fetchOwnerData = async () => {
-      const token = localStorage.getItem("token");
-
       if (!token) {
-        console.error("No token found. Redirecting to login...");
+        console.error("No token found");
         navigate("/login");
         return;
       }
@@ -24,43 +23,38 @@ const OwnerDashboard = () => {
         const ownerResponse = await fetch(
           "http://localhost:5000/api/owner/owner-dashboard",
           {
-            method: "GET",
             headers: {
-              "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
           }
         );
 
         if (ownerResponse.status === 401) {
-          console.error("Unauthorized access. Redirecting to login...");
+          console.error("Unauthorized access");
           navigate("/login");
-        } else if (ownerResponse.ok) {
+          return;
+        }
+
+        if (ownerResponse.ok) {
           const ownerData = await ownerResponse.json();
           setOwner(ownerData.owner);
-          console.log("Owner Data:", ownerData.owner);
         } else {
-          console.error("Unexpected error:", ownerResponse.statusText);
+          throw new Error("Failed to load owner data");
         }
       } catch (error) {
-        console.error("Error fetching owner data:", error);
-        setError("Failed to load owner data.");
+        console.error("Error:", error);
       }
-
       setLoading(false);
     };
 
     fetchOwnerData();
-  }, [navigate]);
+  }, [navigate, token]);
 
-  // Fetch documents only after the owner data is available
   useEffect(() => {
     const fetchDocuments = async () => {
       if (owner && owner._id) {
-        const token = localStorage.getItem("token");
-
         try {
-          const documentsResponse = await axios.get(
+          const { data } = await axios.get(
             `http://localhost:5000/api/chat/received-documents/${owner._id}`,
             {
               headers: {
@@ -68,196 +62,147 @@ const OwnerDashboard = () => {
               },
             }
           );
-          setDocuments(documentsResponse.data.documents);
+          setDocuments(data.documents);
         } catch (error) {
           console.error("Error fetching documents:", error);
-          setError("Failed to load documents.");
         }
-      } else {
-        setError("Owner ID is missing.");
       }
     };
 
-    if (owner && owner._id) {
+    if (owner?._id) {
       fetchDocuments();
     }
-  }, [owner]);
+  }, [owner, token]);
 
-  const handlePrint = async (documentId, fileUrl) => {
-    // Log the document ID when the print button is clicked
-    console.log(`Print button clicked for document ID: ${documentId}`);
-  
+  const handleQRCodeDownload = async (type) => {
     try {
-      // Open a new window for printing
-      const printWindow = window.open('', '', 'width=800,height=600');
-  
-      if (!printWindow) {
-        throw new Error("Failed to open print window. Please check your pop-up blocker settings.");
-      }
-  
-      // Get the file extension to determine if it's a PDF or an image
-      const fileExtension = fileUrl.split('.').pop().toLowerCase();
-  
-      // Add basic print styles to the print window
-      const printStyles = `
-        <style>
-          body { margin: 0; padding: 0; width: 100%; height: 100%; }
-          iframe { width: 100%; height: 100%; border: none; }
-          img { width: 100%; height: auto; }
-        </style>
-      `;
-  
-      // If it's a PDF, embed it in an iframe for printing
-      if (fileExtension === 'pdf') {
-        printWindow.document.write(`
-          <html>
-            <head>
-              <title>Print Document</title>
-              ${printStyles}
-            </head>
-            <body>
-              <iframe src="${fileUrl}" id="pdf-iframe" frameborder="0"></iframe>
-            </body>
-          </html>
-        `);
-  
-        printWindow.document.close();
-  
-        // Wait for the iframe to load
-        printWindow.onload = () => {
-          const iframe = printWindow.document.getElementById('pdf-iframe');
-  
-          iframe.onload = () => {
-            try {
-              const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-  
-              // Remove the download controls
-              const downloadControls = iframeDoc.querySelector('#downloads') ||
-                                       iframeDoc.querySelector('viewer-download-controls');
-  
-              if (downloadControls) {
-                downloadControls.remove();
-                console.log("Download controls removed.");
-              } else {
-                console.warn("Download controls not found.");
-              }
-  
-              // Trigger the print button in the PDF viewer's toolbar
-              const printButton = iframeDoc.querySelector('button[title="Print"]');
-              if (printButton) {
-                printButton.click(); // Simulate a click on the print button
-              } else {
-                printWindow.print(); // Fallback to the default print
-              }
-            } catch (error) {
-              console.error("Failed to modify iframe content:", error);
-              printWindow.print(); // Fallback to default print if manipulation fails
-            }
-          };
-        };
-      } else {
-        // For image files, use the old technique (display the image and print)
-        const response = await fetch(fileUrl);
-        const blob = await response.blob();
-        const fileUrlForPrint = URL.createObjectURL(blob);
-  
-        printWindow.document.write(`
-          <html>
-            <head>
-              <title>Print Document</title>
-              ${printStyles}
-            </head>
-            <body>
-              <img src="${fileUrlForPrint}" alt="Document" />
-            </body>
-          </html>
-        `);
-  
-        printWindow.document.close();
-  
-        // Trigger print dialog after the image has loaded
-        printWindow.onload = () => {
-          printWindow.print();
-          printWindow.close(); // Close the print window after printing
-        };
-  
-        // Cleanup object URL after printing
-        setTimeout(() => {
-          URL.revokeObjectURL(fileUrlForPrint);
-        }, 30000);
-      }
-  
-      // Delete the document after 30 seconds
-      setTimeout(async () => {
-        try {
-          await axios.delete(`http://localhost:5000/api/chat/delete-document/${documentId}`);
-          setDocuments((prevDocuments) => prevDocuments.filter((doc) => doc._id !== documentId));
-        } catch (error) {
-          console.error("Error deleting document:", error);
-          setError("Failed to delete document.");
-        }
-      }, 30000);
+      const endpoint =
+        type === "shop-id"
+          ? "http://localhost:5000/api/owner/qr-code/shop-id"
+          : "http://localhost:5000/api/owner/qr-code/shop-name";
+
+      const response = await axios.get(endpoint, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const { qrCode } = response.data;
+
+      // Convert base64 to a downloadable file
+      const link = document.createElement("a");
+      link.href = qrCode;
+      link.download = `qr-code-${type}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (error) {
-      console.error("Error during printing process:", error);
-      setError("Printing failed.");
+      console.error("Error downloading QR code:", error);
     }
   };
-  
+
+  const handlePrint = async (documentId) => {
+    if (!token) {
+      console.error("No token found");
+      navigate("/login");
+      return;
+    }
+
+    try {
+      const response = await axios.get(
+        `http://localhost:5000/api/chat/decrypt-file/${documentId}`,
+        {
+          responseType: "blob",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const decryptedBlob = response.data;
+      const decryptedUrl = URL.createObjectURL(decryptedBlob);
+
+      const contentType = decryptedBlob.type;
+      if (contentType.includes("image")) {
+        const image = new Image();
+        image.src = decryptedUrl;
+        image.onload = () => {
+          const printWindow = window.open("", "_blank", "width=800,height=600");
+          if (!printWindow) {
+            throw new Error("Pop-up blocked. Please allow pop-ups for printing.");
+          }
+
+          printWindow.document.write(
+            `<img src="${decryptedUrl}" style="width:100%; height:auto;">`
+          );
+          printWindow.document.close();
+
+          printWindow.onload = () => {
+            setTimeout(() => {
+              printWindow.print();
+              setTimeout(() => {
+                printWindow.close();
+                URL.revokeObjectURL(decryptedUrl);
+              }, 10000);
+            }, 1000);
+          };
+        };
+      } else if (contentType.includes("pdf")) {
+        const printWindow = window.open(decryptedUrl, "_blank", "width=800,height=600");
+
+        if (!printWindow) {
+          throw new Error("Pop-up blocked. Please allow pop-ups for viewing and printing.");
+        }
+
+        printWindow.onload = () => {
+          setTimeout(() => {
+            printWindow.print();
+            setTimeout(() => {
+              printWindow.close();
+              URL.revokeObjectURL(decryptedUrl);
+            }, 10000);
+          }, 1000);
+        };
+      } else {
+        throw new Error("Unsupported file type for printing.");
+      }
+    } catch (error) {
+      console.error("Error handling print:", error);
+    }
+  };
+
   if (loading) {
     return <h1>Loading...</h1>;
   }
-
   if (!owner) {
     return <h1>Owner details could not be loaded.</h1>;
   }
 
   return (
-    <div className="dashboard-container">
-      <h1>Welcome, {owner.name}!</h1>
-      <p>Username: {owner.username}</p>
-      <p>Shop Name: {owner.shopName}</p>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Welcome, {owner?.name}!</h1>
+      <p className="mb-2">Username: {owner?.username}</p>
+      <p className="mb-6">Shop Name: {owner?.shopName}</p>
 
-      <h2>Received Documents</h2>
-      {error && <div style={{ color: "red" }}>{error}</div>}
+      <div className="mb-4 flex gap-4">
+        <button
+          onClick={() => handleQRCodeDownload("shop-id")}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex items-center gap-2"
+        >
+          <FaQrcode />
+          Download QR Code (Shop ID)
+        </button>
 
-      {documents.length === 0 ? (
-        <p>No documents received.</p>
-      ) : (
-        <table className="document-table">
-          <thead>
-            <tr>
-              <th>Document Preview</th>
-              <th>Sender</th>
-              <th>Received At</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {documents.map((document) => (
-              <tr key={document._id}>
-                <td>
-                  <iframe
-                    src={document.fileUrl}
-                    title="Document Preview"
-                    style={{
-                      width: "200px",
-                      height: "150px",
-                      border: "1px solid #ddd",
-                    }}
-                  ></iframe>
-                </td>
-                <td>{document.senderName}</td>
-                <td>{new Date(document.timestamp).toLocaleString()}</td>
-                <td>
-                  <button onClick={() => handlePrint(document._id, document.fileUrl)}>
-                    Print
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+        <button
+          onClick={() => handleQRCodeDownload("shop-name")}
+          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center gap-2"
+        >
+          <FaQrcode />
+          Download QR Code (Shop Name)
+        </button>
+      </div>
+
+      <DocumentTable documents={documents} handlePrint={handlePrint} token={token} />
     </div>
   );
 };
