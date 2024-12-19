@@ -200,45 +200,42 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 });
 
 // Delete document
-router.delete('/delete-document/:documentId', verifyToken, async (req, res) => {
+router.delete("/delete-document/:documentId", async (req, res) => {
   const { documentId } = req.params;
-  
+
   try {
-    const document = await Message.findOne({
-      _id: documentId,
-      receiverId: req.user.id
-    });
+    const document = await Message.findById(documentId); // Fetch document by ID without checking receiverId
 
     if (!document) {
-      return res.status(404).json({ message: 'Document not found or unauthorized' });
+      return res.status(404).json({ message: "Document not found" });
     }
 
     const fileUrl = document.fileUrl;
     if (!fileUrl) {
-      return res.status(400).json({ message: 'File URL not found in the document' });
+      return res.status(400).json({ message: "File URL not found in the document" });
     }
 
     const s3Key = decodeURIComponent(new URL(fileUrl).pathname.substring(1));
-    
+
     try {
       await s3.deleteObject({
         Bucket: process.env.AWS_BUCKET_NAME,
         Key: s3Key,
       }).promise();
-      console.log('File deleted from S3:', s3Key);
+      console.log("File deleted from S3:", s3Key);
     } catch (s3Error) {
-      console.error('Error deleting from S3:', s3Error);
-      // Continue with database cleanup even if S3 deletion fails
+      console.error("Error deleting from S3:", s3Error);
     }
 
     await Message.findByIdAndDelete(documentId);
-    console.log('Document deleted from database:', documentId);
-    
-    res.status(200).json({ message: 'Document deleted successfully' });
+    console.log("Document deleted from database:", documentId);
+
+    res.status(200).json({ message: "Document deleted successfully" });
   } catch (error) {
-    console.error('Error deleting document:', error);
-    res.status(500).json({ message: 'Error deleting document', error: error.message });
+    console.error("Error deleting document:", error);
+    res.status(500).json({ message: "Error deleting document", error: error.message });
   }
 });
+
 
 module.exports = router;

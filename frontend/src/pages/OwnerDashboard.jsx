@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { DocumentTable } from "@/components/document/DocumentTable";
-import { FaQrcode } from "react-icons/fa";
+import { FaQrcode, FaSignOutAlt } from "react-icons/fa";
+import './owner.css';
 
 const OwnerDashboard = () => {
   const [owner, setOwner] = useState(null);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [printQueue, setPrintQueue] = useState([]); 
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
 
@@ -108,14 +110,14 @@ const OwnerDashboard = () => {
     }
   };
 
-  // Handle document printing
+  // Handle document printing and deletion
   const handlePrint = async (documentId) => {
     if (!token) {
       console.error("No token found");
       navigate("/login");
       return;
     }
-
+  
     try {
       const response = await axios.get(
         `http://localhost:5000/api/chat/decrypt-file/${documentId}`,
@@ -126,10 +128,10 @@ const OwnerDashboard = () => {
           },
         }
       );
-
+  
       const decryptedBlob = response.data;
       const decryptedUrl = URL.createObjectURL(decryptedBlob);
-
+  
       const contentType = decryptedBlob.type;
       if (contentType.includes("image")) {
         const image = new Image();
@@ -139,12 +141,12 @@ const OwnerDashboard = () => {
           if (!printWindow) {
             throw new Error("Pop-up blocked. Please allow pop-ups for printing.");
           }
-
+  
           printWindow.document.write(
             `<img src="${decryptedUrl}" style="width:100%; height:auto;">`
           );
           printWindow.document.close();
-
+  
           printWindow.onload = () => {
             setTimeout(() => {
               printWindow.print();
@@ -157,11 +159,11 @@ const OwnerDashboard = () => {
         };
       } else if (contentType.includes("pdf")) {
         const printWindow = window.open(decryptedUrl, "_blank", "width=800,height=600");
-
+  
         if (!printWindow) {
           throw new Error("Pop-up blocked. Please allow pop-ups for viewing and printing.");
         }
-
+  
         printWindow.onload = () => {
           setTimeout(() => {
             printWindow.print();
@@ -174,6 +176,20 @@ const OwnerDashboard = () => {
       } else {
         throw new Error("Unsupported file type for printing.");
       }
+
+      // Add the documentId to the print queue
+      setPrintQueue((prevQueue) => [...prevQueue, documentId]);
+
+      // Delete the document after 30 seconds
+      setTimeout(async () => {
+        try {
+          await axios.delete(`http://localhost:5000/api/chat/delete-document/${documentId}`);
+          setDocuments((prevDocuments) => prevDocuments.filter((doc) => doc._id !== documentId));
+          setPrintQueue((prevQueue) => prevQueue.filter((id) => id !== documentId));
+        } catch (error) {
+          console.error("Error deleting document:", error);
+        }
+      }, 30000); // Delete after 30 seconds
     } catch (error) {
       console.error("Error handling print:", error);
     }
@@ -214,8 +230,22 @@ const OwnerDashboard = () => {
     return <h1>Owner details could not be loaded.</h1>;
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/owner/login");
+  };
+
   return (
-    <div className="p-6">
+    <div className="dashboard-container p-6">
+      <div className="logout-container">
+        <button
+          onClick={handleLogout}
+          className="logout-button"
+        >
+          <FaSignOutAlt /> Logout
+        </button>
+      </div>
+
       <h1 className="text-2xl font-bold mb-4">Welcome, {owner?.name}!</h1>
       <p className="mb-2">Username: {owner?.username}</p>
       <p className="mb-6">Shop Name: {owner?.shopName}</p>

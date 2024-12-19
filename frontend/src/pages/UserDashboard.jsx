@@ -220,32 +220,30 @@ const UserDashboard = () => {
           <p>User ID: {user.name}</p>
 
           {/* Search Section */}
-         {/* Search Section */}
-<div className="search-section">
-  <input
-    type="text"
-    value={searchQuery}
-    onChange={handleSearchChange}
-    placeholder="Search for shops..."
-    className="search-bar"
-  />
-  {/* Display search suggestions */}
-  {shopSuggestions.length > 0 && (
-    <ul className="suggestions">
-      {shopSuggestions.map((shop) => (
-        <li
-          key={shop._id}
-          className="suggestion-item"
-          onClick={() => handleShopSelect(shop)}
-        >
-          <span className="shop-name">{shop.name}</span> 
-          <span className="shop-id"> (ID: {shop._id})</span>
-        </li>
-      ))}
-    </ul>
-  )}
-</div>
-
+          <div className="search-section">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              placeholder="Search for shops..."
+              className="search-bar"
+            />
+            {/* Display search suggestions */}
+            {shopSuggestions.length > 0 && (
+              <ul className="suggestions">
+                {shopSuggestions.map((shop) => (
+                  <li
+                    key={shop._id}
+                    className="suggestion-item"
+                    onClick={() => handleShopSelect(shop)}
+                  >
+                    <span className="shop-name">{shop.name}</span> 
+                    <span className="shop-id"> (ID: {shop._id})</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           {/* QR Code Scanner */}
           <div className="qr-scanner-section">
@@ -263,31 +261,20 @@ const UserDashboard = () => {
             {qrData && <div>Scanned QR Data: {qrData}</div>} {/* Display scanned QR data */}
           </div>
 
-          {/* Upload QR Code Image */}
-          <div className="qr-upload-section">
+          {/* Upload QR Code from File */}
+          <div className="qr-file-upload">
             <input
-              ref={fileInputRef} // Reference to reset file input
               type="file"
               accept="image/*"
               onChange={handleQRFileUpload}
-              className="qr-upload-input"
+              ref={fileInputRef}
             />
           </div>
 
-          {/* Secure Print Section */}
-          <div className="secure-print-section">
-            <h2>Secure Print</h2>
-            <button className="secure-print-button">
-              <FaCamera /> Print Securely
-            </button>
-          </div>
-
-          {/* Logout */}
-          <div className="logout-section">
-            <button className="logout-button" onClick={handleLogout}>
-              <FaSignOutAlt /> Logout
-            </button>
-          </div>
+          {/* Logout Button */}
+          <button className="logout-button" onClick={handleLogout}>
+            <FaSignOutAlt /> Logout
+          </button>
         </div>
       ) : (
         <p>No user data found.</p>
