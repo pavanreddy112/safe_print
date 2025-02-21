@@ -1,75 +1,41 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 
-function AdminSignupForm() {
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-  });
-  const navigate = useNavigate(); // To handle navigation after successful submission
-
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    try {
-      const response = await fetch("http://localhost:5000/api/admin/signup", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
-      if (response.ok) {
-        console.log("Admin signed up successfully:", data);
-        // Redirect to login page after successful signup
-        navigate("/login");  // Assuming '/login' is the login page route
-      } else {
-        console.log("Error:", data);
+const AdminSignupForm = () => {
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (
+        event.keyCode === 123 || // F12
+        event.keyCode === 44 || // PrintScreen
+        (event.ctrlKey && (event.keyCode === 80 || event.keyCode === 83)) || // Ctrl+P, Ctrl+S
+        (event.metaKey && event.shiftKey && event.keyCode === 83) || // Windows+Shift+S (Snipping Tool)
+        (event.ctrlKey && event.shiftKey && (event.keyCode === 73 || event.keyCode === 74)) || // Ctrl+Shift+I, Ctrl+Shift+J
+        (event.ctrlKey && event.keyCode === 85) // Ctrl+U (View Source)
+      ) {
+        event.preventDefault();
+        console.log("Blocked Key: " + event.key);
+        alert("This action is disabled!");
       }
-    } catch (error) {
-      console.error("Error submitting form:", error);
-    }
-  };
+    };
 
+    const handleContextMenu = (event) => {
+      event.preventDefault();
+   
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("contextmenu", handleContextMenu);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("contextmenu", handleContextMenu);
+    };
+  }, []);
   return (
-    <form onSubmit={handleSubmit}>
-      <input
-        type="text"
-        name="name"
-        value={formData.name}
-        onChange={handleChange}
-        placeholder="Name"
-        required
-      />
-      <input
-        type="email"
-        name="email"
-        value={formData.email}
-        onChange={handleChange}
-        placeholder="Email"
-        required
-      />
-      <input
-        type="password"
-        name="password"
-        value={formData.password}
-        onChange={handleChange}
-        placeholder="Password"
-        required
-      />
-      <button type="submit">Submit</button>
-    </form>
+    <div className="flex items-center justify-center h-screen bg-gray-100">
+      <h1 className="text-xl font-semibold">Right Click is Disabled on This Page</h1>
+    </div>
   );
-}
+};
+
 
 export default AdminSignupForm;
